@@ -19,6 +19,8 @@
 using namespace llvm;
 using namespace llvm::object;
 
+#define DEBUG_TYPE "GDBJIT"
+
 // This must be kept in sync with gdb/gdb/jit.h .
 extern "C" {
 
@@ -160,20 +162,26 @@ void GDBJITRegistrationListener::notifyObjectLoaded(
   size_t      Size = DebugObj.getBinary()->getMemoryBufferRef().getBufferSize();
 
   llvm::MutexGuard locked(*JITDebugLock);
-  assert(ObjectBufferMap.find(K) == ObjectBufferMap.end() &&
-         "Second attempt to perform debug registration.");
-  jit_code_entry* JITCodeEntry = new jit_code_entry();
 
-  if (!JITCodeEntry) {
-    llvm::report_fatal_error(
-      "Allocation failed when registering a JIT entry!\n");
-  } else {
-    JITCodeEntry->symfile_addr = Buffer;
-    JITCodeEntry->symfile_size = Size;
+  //{
+      jit_code_entry* JITCodeEntry = new jit_code_entry();
 
-    ObjectBufferMap[K] =
-        RegisteredObjectInfo(Size, JITCodeEntry, std::move(DebugObj));
-    NotifyDebugger(JITCodeEntry);
+      if (!JITCodeEntry) {
+        llvm::report_fatal_error(
+          "Allocation failed when registering a JIT entry!\n");
+      } else {
+        JITCodeEntry->symfile_addr = Buffer;
+        JITCodeEntry->symfile_size = Size;
+
+        ObjectBufferMap[K] =
+            RegisteredObjectInfo(Size, JITCodeEntry, std::move(DebugObj));
+        NotifyDebugger(JITCodeEntry);
+      }
+  //}
+  //else
+  if (ObjectBufferMap.find(K) != ObjectBufferMap.end())
+  {
+      LLVM_DEBUG(dbgs() << "Second attempt to perform debug registration.");
   }
 }
 
