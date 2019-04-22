@@ -128,15 +128,23 @@ static void debug_user_sig_handler(void *Cookie) {
   dbgout.flushBufferWithBanner();
 }
 
+extern thread_local std::string thread_index;
+
 /// dbgs - Return a circular-buffered debug stream.
 raw_ostream &llvm::dbgs() {
   // Do one-time initialization in a thread-safe way.
-  static struct dbgstream {
+  thread_local struct dbgstream {
+    const std::string filename{ std::string("./llvm") + thread_index + ".dbg" };
+    std::error_code EC;
+    raw_fd_ostream S;
+
     circular_raw_ostream strm;
 
     dbgstream() :
-        strm(errs(), "*** Debug Log Output ***\n",
+        S(filename, EC),
+        strm(S, "*** Debug Log Output ***\n",
              (!EnableDebugBuffering || !DebugFlag) ? 0 : DebugBufferSize) {
+      assert(!EC);
       if (EnableDebugBuffering && DebugFlag && DebugBufferSize != 0)
         // TODO: Add a handler for SIGUSER1-type signals so the user can
         // force a debug dump.

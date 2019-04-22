@@ -31,6 +31,8 @@
 #include <iterator>
 #include <sys/stat.h>
 #include <system_error>
+#include <atomic>
+#include <string>
 
 // <fcntl.h> may provide O_BINARY.
 #if defined(HAVE_FCNTL_H)
@@ -838,12 +840,15 @@ void raw_fd_ostream::anchor() {}
 //  outs(), errs(), nulls()
 //===----------------------------------------------------------------------===//
 
+std::atomic thread_count{ 0U };
+thread_local auto thread_index = std::to_string(thread_count++);
+
 /// outs() - This returns a reference to a raw_ostream for standard output.
 /// Use it like: outs() << "foo" << "bar";
 raw_ostream &llvm::outs() {
-  // Set buffer settings to model stdout behavior.
   std::error_code EC;
-  static raw_fd_ostream S("-", EC, sys::fs::F_None);
+  thread_local auto filename = std::string("./llvm") + thread_index + ".out";
+  thread_local raw_fd_ostream S(filename, EC);
   assert(!EC);
   return S;
 }
@@ -851,8 +856,10 @@ raw_ostream &llvm::outs() {
 /// errs() - This returns a reference to a raw_ostream for standard error.
 /// Use it like: errs() << "foo" << "bar";
 raw_ostream &llvm::errs() {
-  // Set standard error to be unbuffered by default.
-  static raw_fd_ostream S(STDERR_FILENO, false, true);
+  std::error_code EC;
+  thread_local auto filename = std::string("./llvm") + thread_index + ".err";
+  thread_local raw_fd_ostream S(filename, EC);
+  assert(!EC);
   return S;
 }
 
